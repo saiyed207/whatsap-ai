@@ -54,7 +54,7 @@ async function startBot() {
         
         // GREETINGS
         if (text.includes("hi") || text.includes("hello") || text.includes("hey") || text.includes("start")) {
-            await sock.sendMessage(sender, { text: "👋 *Welcome to our Kirana Store!* \n\nI am your AI Assistant. You can ask me about prices for *Oil, Rice, Dal, Sugar, or Chocolates*. \n\nHow can I help you today?" });
+            await sock.sendMessage(sender, { text: "👋 *Welcome to our JavaGoat Store!* \n\nI am your AI Assistant. You can ask me about prices for *Oil, Rice, Dal, Sugar, or Chocolates*. \n\nHow can I help you today?" });
         }
 
         // OIL
