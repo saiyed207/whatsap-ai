@@ -1,13 +1,13 @@
 {
-  "name": "ecommerce-whatsapp-bot",
+  "name": "whatsapp-qr-bot",
   "version": "1.0.0",
-  "description": "WhatsApp E-Commerce Bot for YouTube Tutorial",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "6.5.0",
+    "@whiskeysockets/baileys": "6.6.0",
+    "qrcode-terminal": "^0.12.0",
     "pino": "^8.19.0"
   }
 }
