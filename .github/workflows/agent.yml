@@ -1,0 +1,29 @@
+name: E-Commerce Bot (Pairing Code)
+
+on:
+  workflow_dispatch:
+    inputs:
+      phoneNumber:
+        description: 'Your Bot WhatsApp Number (e.g., 9779800000000)'
+        required: true
+        type: string
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Packages
+        run: npm install
+
+      - name: Start Bot and Generate Code
+        env:
+          PHONE_NUMBER: ${{ github.event.inputs.phoneNumber }}
+        run: npm start
