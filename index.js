@@ -18,11 +18,11 @@ async function startBot() {
         const { connection, lastDisconnect, qr } = update;
         if (qr) {
             console.clear();
+            console.log('📱 --- SCAN NEW QR CODE --- 📱');
             qrcode.generate(qr, { small: true });
         }
         if (connection === 'open') {
-            console.log('✅ AI AGENT IS ONLINE!');
-            console.log('Keep this window open. Now send a message from a DIFFERENT phone.');
+            console.log('✅ AI AGENT IS ONLINE AND LOOP-PROTECTED!');
         }
         if (connection === 'close') {
             const reason = lastDisconnect?.error?.output?.statusCode;
@@ -32,32 +32,33 @@ async function startBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    // --- MESSAGE LISTENER ---
     sock.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
         if (!msg.message) return;
 
+        // 🛑 THE LOOP PROTECTOR 🛑
+        // This stops the bot from replying to itself
+        if (msg.key.fromMe) return;
+
         const sender = msg.key.remoteJid;
-        // Get text from any type of message
         const text = (msg.message.conversation || 
                       msg.message.extendedTextMessage?.text || 
                       msg.message.imageMessage?.caption || "").toLowerCase();
 
-        // 🟢 DEBUG LOG: This will show in GitHub Actions when you send a message
-        console.log(`📩 Received message from [${sender}]: ${text}`);
+        // Log the customer message to GitHub Terminal
+        console.log(`📩 Customer [${sender}] said: ${text}`);
 
-        // If you are testing from the SAME number, we will allow it just for this test
-        // Remove "if (msg.key.fromMe) return;" for testing yourself
-        
+        // --- AI RESPONSES ---
         if (text.includes("hi") || text.includes("hello")) {
-            console.log("🤖 Sending Reply: Welcome message...");
-            await sock.sendMessage(sender, { text: "👋 *Hello!* This is my AI Agent working from GitHub!" });
+            await sock.sendMessage(sender, { text: "👋 *Hello!* Welcome to our Store. How can I help you today?" });
         } 
-        else if (text.includes("price")) {
-            console.log("🤖 Sending Reply: Price list...");
-            await sock.sendMessage(sender, { text: "🛍️ *Prices:* \n- Product A: Rs. 1000\n- Product B: Rs. 2000" });
+        else if (text.includes("price") || text.includes("cost")) {
+            await sock.sendMessage(sender, { text: "🛍️ *Our Prices:* \n- Item A: Rs. 500\n- Item B: Rs. 1200\n\nReply with 'Order' to buy!" });
+        }
+        else if (text.includes("order")) {
+            await sock.sendMessage(sender, { text: "🛒 *Order Confirmed!* Please send your address." });
         }
     });
 }
 
-startBot().catch(err => console.log(err));
+startBot().catch(err => console.log("Error: " + err));
