@@ -1,31 +1,47 @@
-const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 
-// This grabs the phone number you type into GitHub Actions
 const phoneNumber = process.env.PHONE_NUMBER; 
 
 async function startBot() {
-    // This saves your session so you don't have to link it every time
     const { state, saveCreds } = await useMultiFileAuthState('session_folder');
     
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: false, // We use pairing code instead of QR
-        logger: pino({ level: "silent" }),
+        printQRInTerminal: false,
+        // Use a logger to see more detailed output
+        logger: pino({ level: "info" }), 
         browser: ["Ubuntu", "Chrome", "20.0.04"]
     });
 
-    // If there is no session, generate an 8-digit Pairing Code
-    if (!sock.authState.creds.registered) {
-        setTimeout(async () => {
-            let code = await sock.requestPairingCode(phoneNumber);
-            // Format the code nicely with a dash (e.g., ABCD-1234)
-            code = code?.match(/.{1,4}/g)?.join("-") || code;
-            console.log(`\n======================================================`);
-            console.log(`🔥 YOUR PAIRING CODE IS: ${code} 🔥`);
-            console.log(`======================================================\n`);
-        }, 3000);
-    }
+    // Handle connection logic and pairing code generation
+    sock.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect } = update;
+
+        if (connection === 'open') {
+            console.log('✅ Connection is open! Bot is ready.');
+        }
+
+        if (connection === 'close') {
+            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+            console.log('❌ Connection closed due to:', lastDisconnect.error, ', reconnecting:', shouldReconnect);
+            // Reconnect if it's not a logout error
+            if (shouldReconnect) {
+                startBot();
+            }
+        }
+
+        // Generate a new Pairing Code if we don't have a session
+        if (!sock.authState.creds.registered && connection === 'connecting') {
+            setTimeout(async () => {
+                let code = await sock.requestPairingCode(phoneNumber);
+                code = code?.match(/.{1,4}/g)?.join("-") || code;
+                console.log(`\n======================================================`);
+                console.log(`🔥 YOUR PAIRING CODE IS: ${code}`);
+                console.log(`======================================================\n`);
+            }, 3000);
+        }
+    });
 
     sock.ev.on('creds.update', saveCreds);
 
@@ -52,7 +68,6 @@ async function startBot() {
             reply = "👋 Welcome to our Store!\nI am your AI assistant. Try asking me about 'price', 'shipping', or 'how to order'.";
         }
 
-        // Send the reply message to the customer
         if (reply) {
             await sock.sendMessage(sender, { text: reply });
         }
