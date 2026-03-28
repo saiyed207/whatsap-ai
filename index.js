@@ -3,11 +3,12 @@ const qrcode = require('qrcode-terminal');
 const pino = require('pino');
 
 async function startBot() {
+    // auth_info stores the session after you scan
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
     
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: false, // We will handle printing ourselves for better quality
+        printQRInTerminal: false, 
         logger: pino({ level: "silent" }),
         browser: ["Ubuntu", "Chrome", "20.0.04"]
     });
@@ -15,15 +16,16 @@ async function startBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        // If a QR code is generated, display it in the terminal
         if (qr) {
-            console.log('--- SCAN THE QR CODE BELOW ---');
+            console.log('\n📱 --- SCAN THIS SMALL QR CODE --- 📱\n');
+            // {small: true} uses special characters to make it 50% smaller
             qrcode.generate(qr, { small: true });
-            console.log('--- QR CODE EXPIRES SOON ---');
+            console.log('\n----------------------------------\n');
+            console.log('TIP: If it looks messy, zoom OUT your browser or turn phone to Landscape.');
         }
 
         if (connection === 'open') {
-            console.log('✅ BOT CONNECTED SUCCESSFULLY!');
+            console.log('✅ BOT CONNECTED!');
         }
 
         if (connection === 'close') {
@@ -34,25 +36,17 @@ async function startBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    // E-Commerce AI Logic
+    // Simple Auto-Reply
     sock.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
         if (!msg.message || msg.key.fromMe) return;
-
         const sender = msg.key.remoteJid;
         const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").toLowerCase();
 
-        let reply = "";
         if (text.includes("price")) {
-            reply = "🛍️ Items start from Rs. 500!";
-        } else if (text.includes("order")) {
-            reply = "🛒 Send your Name and Address to order.";
+            await sock.sendMessage(sender, { text: "🛍️ Shop Items: Rs. 500 - Rs. 5000" });
         } else if (text.includes("hi") || text.includes("hello")) {
-            reply = "👋 Welcome to our E-commerce store! Ask me about 'price' or 'order'.";
-        }
-
-        if (reply) {
-            await sock.sendMessage(sender, { text: reply });
+            await sock.sendMessage(sender, { text: "👋 Hello! I am your AI Business Agent." });
         }
     });
 }
