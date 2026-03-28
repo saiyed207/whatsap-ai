@@ -1,12 +1,7 @@
-name: E-Commerce Bot (Pairing Code)
+name: WhatsApp QR Bot
 
 on:
   workflow_dispatch:
-    inputs:
-      phoneNumber:
-        description: 'Your Bot WhatsApp Number (e.g., 9779800000000)'
-        required: true
-        type: string
 
 jobs:
   run-bot:
@@ -20,15 +15,11 @@ jobs:
         with:
           node-version: '20'
 
-      # --- THIS IS THE GUARANTEED FIX ---
-      - name: Delete Old Session Folder
-        run: rm -rf session_folder
-      # --------------------------------
+      - name: Delete Old Session
+        run: rm -rf auth_info
 
       - name: Install Packages
         run: npm install
 
-      - name: Start Bot and Generate Code
-        env:
-          PHONE_NUMBER: ${{ github.event.inputs.phoneNumber }}
+      - name: Start Bot
         run: npm start
