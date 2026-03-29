@@ -11,24 +11,17 @@ async function startBot() {
         auth: state,
         printQRInTerminal: false,
         logger: pino({ level: 'silent' }),
-        browser: ["S", "K", "1"] 
+        browser: ["Ubuntu", "Chrome", "20.0.04"]
     });
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
+        // --- COMPACT QR GENERATION ---
         if (qr) {
             console.clear(); 
-            
-            // --- 🌟 NEW FIX: CLICKABLE PERFECT QR IMAGE LINK 🌟 ---
-            const qrImageLink = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`;
-            console.log('\n======================================================');
-            console.log('🌐 IS THE TERMINAL QR TOO BIG? CLICK THE LINK BELOW:');
-            console.log(qrImageLink);
-            console.log('======================================================\n');
-            
-            // Still prints the terminal one just in case
-            console.log('SCAN IN TERMINAL:');
+            console.log('SCAN QR:');
+            // This is the smallest possible terminal format
             qrcode.generate(qr, { small: true }); 
         }
 
@@ -47,7 +40,7 @@ async function startBot() {
         const msg = m.messages[0];
         if (!msg.message || msg.key.remoteJid === 'status@broadcast') return;
 
-        // 🛑 LOOP PROTECTION
+        // 🛑 LOOP PROTECTION (Strict)
         if (msg.key.fromMe) return;
 
         const sender = msg.key.remoteJid;
@@ -55,9 +48,9 @@ async function startBot() {
                       msg.message.extendedTextMessage?.text || 
                       msg.message.imageMessage?.caption || "").toLowerCase();
 
-        console.log(`📩 Query: ${text}`);
+        console.log(`📩 Message: ${text}`);
 
-        // --- KIRANA BUSINESS LOGIC (UNTOUCHED) ---
+        // --- KIRANA BUSINESS LOGIC (NO CHANGES MADE) ---
         
         if (text.includes("hi") || text.includes("hello") || text.includes("hey") || text.includes("start")) {
             await sock.sendMessage(sender, { text: "👋 *Welcome to our Kirana Store!* \n\nI am your AI Assistant. You can ask me about prices for *Oil, Rice, Dal, Sugar, or Chocolates*. \n\nHow can I help you today?" });
