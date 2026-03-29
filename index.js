@@ -2,6 +2,10 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLat
 const qrcode = require('qrcode-terminal');
 const pino = require('pino');
 
+// 🌟 NEW: THE BOT'S MEMORY SYSTEM 🌟
+// This remembers which customers are currently filling out an order
+const orderStates = {}; 
+
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('session_data');
     const { version } = await fetchLatestBaileysVersion();
@@ -11,17 +15,22 @@ async function startBot() {
         auth: state,
         printQRInTerminal: false,
         logger: pino({ level: 'silent' }),
-        browser: ["Ubuntu", "Chrome", "20.0.04"]
+        browser:["S", "K", "1"] 
     });
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // --- COMPACT QR GENERATION ---
         if (qr) {
             console.clear(); 
-            console.log('SCAN QR:');
-            // This is the smallest possible terminal format
+            console.log('\n==================================================');
+            console.log('⚠️ QR CODE TOO BIG? DO THIS ON YOUR DESKTOP:');
+            console.log('1. Look at the Top-Right corner of this black box.');
+            console.log('2. Click the ⚙️ (Gear Icon).');
+            console.log('3. Click "View raw logs".');
+            console.log('The QR Code will instantly become small and perfect!');
+            console.log('==================================================\n');
+            
             qrcode.generate(qr, { small: true }); 
         }
 
@@ -40,7 +49,7 @@ async function startBot() {
         const msg = m.messages[0];
         if (!msg.message || msg.key.remoteJid === 'status@broadcast') return;
 
-        // 🛑 LOOP PROTECTION (Strict)
+        // 🛑 STRICT LOOP PROTECTION
         if (msg.key.fromMe) return;
 
         const sender = msg.key.remoteJid;
@@ -48,9 +57,20 @@ async function startBot() {
                       msg.message.extendedTextMessage?.text || 
                       msg.message.imageMessage?.caption || "").toLowerCase();
 
-        console.log(`📩 Message: ${text}`);
+        console.log(`📩 Query: ${text}`);
 
-        // --- KIRANA BUSINESS LOGIC (NO CHANGES MADE) ---
+        // --- 🛒 NEW: STEP-BY-STEP ORDER LOGIC ---
+        
+        // Check if the bot is currently waiting for THIS customer's address
+        if (orderStates[sender] === 'WAITING_FOR_ADDRESS') {
+            await sock.sendMessage(sender, { text: "✅ *Order Confirmed!* \n\nThank you! Your order has been recorded and will be delivered to your address within *1 hour*." });
+            
+            // Delete them from the memory so they can ask other questions normally again
+            delete orderStates[sender]; 
+            return; // Stop reading the rest of the code for this message
+        }
+
+        // --- KIRANA BUSINESS LOGIC (UNTOUCHED) ---
         
         if (text.includes("hi") || text.includes("hello") || text.includes("hey") || text.includes("start")) {
             await sock.sendMessage(sender, { text: "👋 *Welcome to our Kirana Store!* \n\nI am your AI Assistant. You can ask me about prices for *Oil, Rice, Dal, Sugar, or Chocolates*. \n\nHow can I help you today?" });
@@ -70,7 +90,15 @@ async function startBot() {
         else if (text.includes("price") || text.includes("rate") || text.includes("list")) {
             await sock.sendMessage(sender, { text: "🛍️ *Daily Rates:* \n- Sugar: Rs. 48/kg\n- Salt: Rs. 25/pack\n- Tea (250g): Rs. 150\n\n_Type the item name (like 'Oil') for details!_" });
         }
-        else if (text.includes("contact") || text.includes("call") || text.includes("order") || text.includes("email")) {
+        
+        // --- UPDATED "ORDER" TRIGGER ---
+        else if (text.includes("order")) {
+            // Put this customer into the bot's memory
+            orderStates[sender] = 'WAITING_FOR_ADDRESS';
+            await sock.sendMessage(sender, { text: "🛒 *Let's place your order!* \n\nPlease reply with your *Full Name* and *Delivery Address*." });
+        }
+
+        else if (text.includes("contact") || text.includes("call") || text.includes("email")) {
             await sock.sendMessage(sender, { text: "📞 *Contact Info:* \n\n- *Phone:* +918792549215\n- *Email:* saiyedkhan207@gmail.com\n- *Owner:* Saiyed Khan" });
         }
         else {
