@@ -11,17 +11,18 @@ async function startBot() {
         auth: state,
         printQRInTerminal: false,
         logger: pino({ level: 'silent' }),
-        browser: ["Ubuntu", "Chrome", "20.0.04"]
+        // SHORTENING BROWSER DATA MAKES THE QR CODE PHYSICALLY SMALLER
+        browser: ["S", "K", "1"] 
     });
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // --- COMPACT QR GENERATION ---
         if (qr) {
             console.clear(); 
-            console.log('SCAN QR:');
-            // This is the smallest possible terminal format
+            // Minimal text to save vertical space
+            console.log('SCAN:');
+            // Smallest Unicode format
             qrcode.generate(qr, { small: true }); 
         }
 
@@ -40,7 +41,7 @@ async function startBot() {
         const msg = m.messages[0];
         if (!msg.message || msg.key.remoteJid === 'status@broadcast') return;
 
-        // 🛑 LOOP PROTECTION (Strict)
+        // 🛑 LOOP PROTECTION
         if (msg.key.fromMe) return;
 
         const sender = msg.key.remoteJid;
@@ -48,9 +49,9 @@ async function startBot() {
                       msg.message.extendedTextMessage?.text || 
                       msg.message.imageMessage?.caption || "").toLowerCase();
 
-        console.log(`📩 Message: ${text}`);
+        console.log(`📩 Query: ${text}`);
 
-        // --- KIRANA BUSINESS LOGIC (NO CHANGES MADE) ---
+        // --- KIRANA BUSINESS LOGIC (UNTOUCHED) ---
         
         if (text.includes("hi") || text.includes("hello") || text.includes("hey") || text.includes("start")) {
             await sock.sendMessage(sender, { text: "👋 *Welcome to our Kirana Store!* \n\nI am your AI Assistant. You can ask me about prices for *Oil, Rice, Dal, Sugar, or Chocolates*. \n\nHow can I help you today?" });
