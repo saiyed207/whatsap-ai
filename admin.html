@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kirana Store Admin</title>
+    <!-- Official Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f4f9; text-align: center; padding: 20px; }
         .box { background: white; padding: 20px; border-radius: 10px; box-shadow: 0px 0px 10px rgba(0,0,0,0.1); display: inline-block; margin-top: 50px; }
@@ -46,45 +49,60 @@
     </div>
 
     <script>
-        // 🌟 YOUR FIREBASE LINK (Same as index.js)
-        const FIREBASE_URL = "YOUR_FIREBASE_LINK_HERE/orders.json";
+        // 🌟 PASTE YOUR FIREBASE CONFIG HERE 🌟
+        const firebaseConfig = {
+          apiKey: "YOUR_API_KEY",
+          authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+          databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+          projectId: "YOUR_PROJECT_ID",
+          storageBucket: "YOUR_PROJECT_ID.appspot.com",
+          messagingSenderId: "YOUR_SENDER_ID",
+          appId: "YOUR_APP_ID"
+        };
 
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Login Logic
         function login() {
             const user = document.getElementById('username').value;
             const pass = document.getElementById('password').value;
 
-            // Password Check
             if(user === "admin" && pass === "admin123") {
                 document.getElementById('loginScreen').style.display = "none";
                 document.getElementById('dashboard').style.display = "block";
-                fetchOrders(); // Load orders immediately
+                fetchOrders(); 
             } else {
                 document.getElementById('errorMsg').style.display = "block";
             }
         }
 
-        async function fetchOrders() {
-            const response = await fetch(FIREBASE_URL);
-            const data = await response.json();
-            const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = ""; // Clear table
+        // Fetch Orders from Official Firebase Database
+        function fetchOrders() {
+            db.ref('orders').once('value').then((snapshot) => {
+                const data = snapshot.val();
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = ""; 
 
-            if(data) {
-                // Loop through all orders from database
-                Object.keys(data).forEach(key => {
-                    const order = data[key];
-                    tbody.innerHTML += `
-                        <tr>
-                            <td>${order.time}</td>
-                            <td>${order.phone}</td>
-                            <td><b>${order.product}</b></td>
-                            <td>${order.address}</td>
-                        </tr>
-                    `;
-                });
-            } else {
-                tbody.innerHTML = "<tr><td colspan='4'>No orders yet.</td></tr>";
-            }
+                if(data) {
+                    Object.keys(data).reverse().forEach(key => { // .reverse() puts newest orders at top
+                        const order = data[key];
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${order.time}</td>
+                                <td>${order.phone}</td>
+                                <td><b>${order.product}</b></td>
+                                <td>${order.address}</td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    tbody.innerHTML = "<tr><td colspan='4'>No orders yet.</td></tr>";
+                }
+            }).catch((error) => {
+                console.error("Firebase fetch error:", error);
+            });
         }
     </script>
 
