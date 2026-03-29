@@ -8,13 +8,13 @@ const { getDatabase, ref, push, set } = require("firebase/database");
 
 // 🌟 2. PASTE YOUR FIREBASE CONFIG HERE 🌟
 const firebaseConfig = {
-  apiKey: "AIzaSyAOK-Ev6qTa0ABL0dTN-vSjel1jPSnNNAE",
-  authDomain: "fitness-d12f4.firebaseapp.com",
-  databaseURL: "https://fitness-d12f4-default-rtdb.firebaseio.com",
-  projectId: "fitness-d12f4",
-  storageBucket: "fitness-d12f4.firebasestorage.app",
-  messagingSenderId: "77784146203",
-  appId: "1:77784146203:web:11eb153f12d05da730b3be"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 
 // Initialize Firebase
@@ -67,7 +67,7 @@ async function startBot() {
 
         console.log(`📩 Query: ${text}`);
 
-        // --- 🛒 NEW: "ORDER [PRODUCT]" LOGIC & FIREBASE SAVE ---
+        // --- 🛒 STEP 2: FINISHING THE ORDER & FIREBASE SAVE ---
         
         // Check if customer is typing their Address for an existing order
         if (orderStates[sender]?.step === 'WAITING_FOR_ADDRESS') {
@@ -95,7 +95,18 @@ async function startBot() {
 
         // --- KIRANA BUSINESS LOGIC ---
         
-        if (text.includes("hi") || text.includes("hello") || text.includes("hey") || text.includes("start")) {
+        // 🌟 MOVED TO TOP: START THE ORDER FLOW
+        if (text.startsWith("order ")) {
+            const productRequested = text.replace("order ", "").trim(); // Extracts the product name
+            orderStates[sender] = { step: 'WAITING_FOR_ADDRESS', product: productRequested };
+            await sock.sendMessage(sender, { text: `🛒 *Let's place your order!* \n\nYou want to order: *${productRequested}*\n\nPlease reply with your *Full Name* and *Delivery Address*.` });
+        }
+        else if (text === "order") { // Just in case they type ONLY "order" without a product
+            await sock.sendMessage(sender, { text: "🛒 *How to order:* \nPlease type 'order' followed by the item name. \nExample: *order 5kg rice*" });
+        }
+        
+        // NORMAL INQUIRIES
+        else if (text.includes("hi") || text.includes("hello") || text.includes("hey") || text.includes("start")) {
             await sock.sendMessage(sender, { text: "👋 *Welcome to our Kirana Store!* \n\nI am your AI Assistant. You can ask me about prices for *Oil, Rice, Dal, Sugar, or Chocolates*. \n\nHow can I help you today?" });
         }
         else if (text.includes("oil") || text.includes("tel")) {
@@ -113,14 +124,6 @@ async function startBot() {
         else if (text.includes("price") || text.includes("rate") || text.includes("list")) {
             await sock.sendMessage(sender, { text: "🛍️ *Daily Rates:* \n- Sugar: Rs. 48/kg\n- Salt: Rs. 25/pack\n- Tea (250g): Rs. 150\n\n_Type the item name (like 'Oil') for details!_" });
         }
-        
-        // 🌟 START THE ORDER FLOW: Customer types "order [product]"
-        else if (text.startsWith("order ")) {
-            const productRequested = text.replace("order ", "").trim(); // Extracts the product name
-            orderStates[sender] = { step: 'WAITING_FOR_ADDRESS', product: productRequested };
-            await sock.sendMessage(sender, { text: `🛒 *Let's place your order!* \n\nYou want to order: *${productRequested}*\n\nPlease reply with your *Full Name* and *Delivery Address*.` });
-        }
-
         else if (text.includes("contact") || text.includes("call") || text.includes("email")) {
             await sock.sendMessage(sender, { text: "📞 *Contact Info:* \n\n- *Phone:* +918792549215\n- *Email:* saiyedkhan207@gmail.com\n- *Owner:* Saiyed Khan" });
         }
