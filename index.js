@@ -11,7 +11,6 @@ async function startBot() {
         auth: state,
         printQRInTerminal: false,
         logger: pino({ level: 'silent' }),
-        // SHORTENING BROWSER DATA MAKES THE QR CODE PHYSICALLY SMALLER
         browser: ["S", "K", "1"] 
     });
 
@@ -20,9 +19,16 @@ async function startBot() {
         
         if (qr) {
             console.clear(); 
-            // Minimal text to save vertical space
-            console.log('SCAN:');
-            // Smallest Unicode format
+            
+            // --- 🌟 NEW FIX: CLICKABLE PERFECT QR IMAGE LINK 🌟 ---
+            const qrImageLink = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`;
+            console.log('\n======================================================');
+            console.log('🌐 IS THE TERMINAL QR TOO BIG? CLICK THE LINK BELOW:');
+            console.log(qrImageLink);
+            console.log('======================================================\n');
+            
+            // Still prints the terminal one just in case
+            console.log('SCAN IN TERMINAL:');
             qrcode.generate(qr, { small: true }); 
         }
 
