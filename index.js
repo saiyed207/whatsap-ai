@@ -8,13 +8,13 @@ const { getDatabase, ref, push, set } = require("firebase/database");
 
 // 🌟 2. PASTE YOUR FIREBASE CONFIG HERE 🌟
 const firebaseConfig = {
-  apiKey: "AIzaSyAOK-Ev6qTa0ABL0dTN-vSjel1jPSnNNAE",
-  authDomain: "fitness-d12f4.firebaseapp.com",
-  databaseURL: "https://fitness-d12f4-default-rtdb.firebaseio.com",
-  projectId: "fitness-d12f4",
-  storageBucket: "fitness-d12f4.firebasestorage.app",
-  messagingSenderId: "77784146203",
-  appId: "1:77784146203:web:11eb153f12d05da730b3be"
+  apiKey: "AIzaSyD86T-rbBDVELLm5iEah4fIYoY09Ke2fW4",
+  authDomain: "chatapp-4c796.firebaseapp.com",
+  databaseURL: "https://chatapp-4c796-default-rtdb.firebaseio.com",
+  projectId: "chatapp-4c796",
+  storageBucket: "chatapp-4c796.firebasestorage.app",
+  messagingSenderId: "162693753902",
+  appId: "1:162693753902:web:4a3e804a3f5a2dccae83bf"
 };
 
 // Initialize Firebase
