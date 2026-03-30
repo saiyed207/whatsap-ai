@@ -2,28 +2,37 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLat
 const qrcode = require('qrcode-terminal');
 const pino = require('pino');
 
-// 🌟 1. IMPORT OFFICIAL FIREBASE 🌟
-const { initializeApp } = require("firebase/app");
-const { getDatabase, ref, push, set } = require("firebase/database");
-
-// 🌟 2. PASTE YOUR FIREBASE CONFIG HERE 🌟
-const firebaseConfig = {
-  apiKey: "AIzaSyAFx36s6Smq-j6Ye7R6OdlWRb8y5kouYL8",
-  authDomain: "abc1-cf249.firebaseapp.com",
-  databaseURL: "https://abc1-cf249-default-rtdb.firebaseio.com",
-  projectId: "abc1-cf249",
-  storageBucket: "abc1-cf249.firebasestorage.app",
-  messagingSenderId: "1032021280166",
-  appId: "1:1032021280166:web:3bbf8e050e34a4a20c3b67"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+// 🌟 SECURE FIREBASE URL FROM GITHUB SECRETS 🌟
+const FIREBASE_URL = process.env.FIREBASE_URL;
 
 const orderStates = {}; 
 
+// Function to fetch the dynamic menu from your App's Firebase
+async function getMenuFromApp() {
+    try {
+        const response = await fetch(`${FIREBASE_URL}/dishes.json`);
+        const data = await response.json();
+        if (!data) return[];
+        
+        // Convert Firebase object into an array
+        return Object.keys(data).map(key => ({
+            id: key,
+            name: data[key].name,
+            price: data[key].price,
+            imageUrl: data[key].imageUrl
+        }));
+    } catch (error) {
+        console.error("Failed to fetch menu:", error);
+        return[];
+    }
+}
+
 async function startBot() {
+    if (!FIREBASE_URL) {
+        console.log("❌ ERROR: FIREBASE_URL is missing in GitHub Secrets!");
+        process.exit(1);
+    }
+
     const { state, saveCreds } = await useMultiFileAuthState('session_data');
     const { version } = await fetchLatestBaileysVersion();
 
@@ -32,7 +41,7 @@ async function startBot() {
         auth: state,
         printQRInTerminal: false,
         logger: pino({ level: 'silent' }),
-        browser:["S", "K", "1"] 
+        browser:["S", "K", "1"] // Ultra-compact QR code
     });
 
     sock.ev.on('connection.update', (update) => {
@@ -41,14 +50,12 @@ async function startBot() {
         if (qr) {
             console.clear(); 
             console.log('\n==================================================');
-            console.log('⚠️ QR CODE TOO BIG? DO THIS ON YOUR DESKTOP:');
-            console.log('1. Click the ⚙️ (Gear Icon) in the top right.');
-            console.log('2. Click "View raw logs".');
+            console.log('⚠️ QR CODE TOO BIG? CLICK "View raw logs" in top right!');
             console.log('==================================================\n');
             qrcode.generate(qr, { small: true }); 
         }
 
-        if (connection === 'open') console.log('✅ KIRANA SHOP AI IS ONLINE!');
+        if (connection === 'open') console.log('✅ JAVAGOAT AI IS ONLINE!');
         if (connection === 'close') {
             const reason = lastDisconnect?.error?.output?.statusCode;
             if (reason !== DisconnectReason.loggedOut) startBot();
@@ -67,68 +74,95 @@ async function startBot() {
 
         console.log(`📩 Query: ${text}`);
 
-        // --- 🛒 STEP 2: FINISHING THE ORDER & FIREBASE SAVE ---
-        
-        // Check if customer is typing their Address for an existing order
+        // --- 🛒 STEP 2: FINISH ORDER & SEND TO ADMIN PANEL ---
         if (orderStates[sender]?.step === 'WAITING_FOR_ADDRESS') {
             const customerAddress = text;
-            const customerProduct = orderStates[sender].product;
+            const item = orderStates[sender].item;
             const customerPhone = sender.split('@')[0];
 
-            // Save to Official Firebase Database
+            // Match the exact format of your JavaGoat Admin Panel
+            const javaGoatOrder = {
+                userId: "whatsapp_" + customerPhone,
+                userEmail: "whatsapp@javagoat.com",
+                phone: customerPhone,
+                address: customerAddress,
+                location: { lat: 0, lng: 0 },
+                items:[{
+                    id: item.id,
+                    name: item.name,
+                    price: parseFloat(item.price),
+                    img: item.imageUrl || "",
+                    quantity: 1
+                }],
+                total: (parseFloat(item.price) + 50).toFixed(2), // Price + 50 Delivery Fee (Matching your app)
+                status: "Placed",
+                method: "Cash on Delivery (WhatsApp)",
+                timestamp: new Date().toISOString()
+            };
+
+            // Save order securely via REST API
             try {
-                const orderRef = push(ref(db, 'orders'));
-                await set(orderRef, {
-                    phone: customerPhone,
-                    product: customerProduct,
-                    address: customerAddress,
-                    time: new Date().toLocaleString()
+                await fetch(`${FIREBASE_URL}/orders.json`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(javaGoatOrder)
                 });
             } catch (error) {
                 console.log("Firebase Error: ", error);
             }
 
-            await sock.sendMessage(sender, { text: `✅ *Order Confirmed!* \n\nThank you! Your order for *${customerProduct}* has been recorded and will be delivered to your address within *1 hour*.` });
-            delete orderStates[sender]; // Clear memory so they can order again
+            await sock.sendMessage(sender, { text: `✅ *Order Placed Successfully!* \n\nThank you! Your order for *${item.name}* is being prepared. \n\n*Total:* ₹${javaGoatOrder.total} (Inc. Delivery)\n*Status:* Preparing\n\nWe will deliver it to your address soon.` });
+            delete orderStates[sender]; 
             return;
         }
 
-        // --- KIRANA BUSINESS LOGIC ---
-        
-        // 🌟 MOVED TO TOP: START THE ORDER FLOW
+        // --- 🌟 STEP 1: START ORDER FLOW ---
         if (text.startsWith("order ")) {
-            const productRequested = text.replace("order ", "").trim(); // Extracts the product name
-            orderStates[sender] = { step: 'WAITING_FOR_ADDRESS', product: productRequested };
-            await sock.sendMessage(sender, { text: `🛒 *Let's place your order!* \n\nYou want to order: *${productRequested}*\n\nPlease reply with your *Full Name* and *Delivery Address*.` });
+            const productRequested = text.replace("order ", "").trim().toLowerCase();
+            const currentMenu = await getMenuFromApp();
+            
+            // Search the live database for the requested item
+            const matchedItem = currentMenu.find(item => item.name.toLowerCase().includes(productRequested));
+
+            if (!matchedItem) {
+                await sock.sendMessage(sender, { text: `❌ Sorry, we couldn't find *${productRequested}* in our menu today.\n\nType *menu* to see all available items.` });
+                return;
+            }
+
+            orderStates[sender] = { step: 'WAITING_FOR_ADDRESS', item: matchedItem };
+            await sock.sendMessage(sender, { text: `🛒 *Order Started!* \n\nYou selected: *${matchedItem.name}* (₹${matchedItem.price})\n\nPlease reply with your *Full Name* and *Delivery Address*.` });
         }
-        else if (text === "order") { // Just in case they type ONLY "order" without a product
-            await sock.sendMessage(sender, { text: "🛒 *How to order:* \nPlease type 'order' followed by the item name. \nExample: *order 5kg rice*" });
+        else if (text === "order") { 
+            await sock.sendMessage(sender, { text: "🛒 *How to order:* \nPlease type 'order' followed by the dish name. \nExample: *order pizza*" });
         }
         
-        // NORMAL INQUIRIES
-        else if (text.includes("hi") || text.includes("hello") || text.includes("hey") || text.includes("start")) {
-            await sock.sendMessage(sender, { text: "👋 *Welcome to our Kirana Store!* \n\nI am your AI Assistant. You can ask me about prices for *Oil, Rice, Dal, Sugar, or Chocolates*. \n\nHow can I help you today?" });
+        // --- DYNAMIC MENU FEATURE ---
+        else if (text.includes("menu") || text.includes("price") || text.includes("list") || text.includes("food")) {
+            const currentMenu = await getMenuFromApp();
+            
+            if (currentMenu.length === 0) {
+                await sock.sendMessage(sender, { text: "Our menu is currently empty or updating. Please check back soon!" });
+                return;
+            }
+
+            let menuMessage = "🍔 *JAVAGOAT LIVE MENU* 🍕\n\n";
+            currentMenu.forEach(item => {
+                menuMessage += `🔸 *${item.name}* - ₹${item.price}\n`;
+            });
+            menuMessage += "\n_To order, reply with 'order [dish name]'_";
+            
+            await sock.sendMessage(sender, { text: menuMessage });
         }
-        else if (text.includes("oil") || text.includes("tel")) {
-            await sock.sendMessage(sender, { text: "🌻 *Oil Price List:* \n- Sunflower Oil (1L): Rs. 190\n- Mustard Oil (1L): Rs. 175\n- Soyabean Oil (1L): Rs. 160" });
+
+        // --- GREETINGS ---
+        else if (text.includes("hi") || text.includes("hello") || text.includes("hey")) {
+            await sock.sendMessage(sender, { text: "👋 *Welcome to JavaGoat!* \n\nI am your AI Assistant. Type *menu* to see our delicious food, or type *order [dish]* to buy instantly!" });
         }
-        else if (text.includes("rice") || text.includes("chawal")) {
-            await sock.sendMessage(sender, { text: "🌾 *Rice Price List:* \n- Basmati Rice: Rs. 120/kg\n- Jeera Masino: Rs. 75/kg\n- Long Grain Rice: Rs. 95/kg" });
-        }
-        else if (text.includes("dal") || text.includes("pulses")) {
-            await sock.sendMessage(sender, { text: "🍲 *Dal Price List:* \n- Arhar/Toor Dal: Rs. 160/kg\n- Moong Dal: Rs. 140/kg\n- Masoor Dal: Rs. 130/kg" });
-        }
-        else if (text.includes("chocolate") || text.includes("cadbury") || text.includes("biscuit")) {
-            await sock.sendMessage(sender, { text: "🍫 *Chocolates & Snacks:* \n- Dairy Milk: Rs. 10 to Rs. 100\n- KitKat: Rs. 20\n- Oreo/Parle-G: Available" });
-        }
-        else if (text.includes("price") || text.includes("rate") || text.includes("list")) {
-            await sock.sendMessage(sender, { text: "🛍️ *Daily Rates:* \n- Sugar: Rs. 48/kg\n- Salt: Rs. 25/pack\n- Tea (250g): Rs. 150\n\n_Type the item name (like 'Oil') for details!_" });
-        }
-        else if (text.includes("contact") || text.includes("call") || text.includes("email")) {
-            await sock.sendMessage(sender, { text: "📞 *Contact Info:* \n\n- *Phone:* +918792549215\n- *Email:* saiyedkhan207@gmail.com\n- *Owner:* Saiyed Khan" });
+        else if (text.includes("contact") || text.includes("call")) {
+            await sock.sendMessage(sender, { text: "📞 *Contact JavaGoat:* \n\n- *Email:* support@javagoat.com" });
         }
         else {
-            await sock.sendMessage(sender, { text: "🤔 *Inquiry Received:* \nI am not sure about the price of that item yet.\n\n📧 *Please contact us directly:* \nEmail: *saiyedkhan207@gmail.com*\nPhone: *+918792549215*" });
+            await sock.sendMessage(sender, { text: "🤔 I didn't quite catch that.\n\nType *menu* to see our food list, or *order [food]* to place an order!" });
         }
     });
 }
