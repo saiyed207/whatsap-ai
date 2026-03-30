@@ -14,7 +14,7 @@ async function getMenuFromApp() {
         const data = await response.json();
         if (!data) return[];
         
-        // Convert Firebase object into an array
+        // Convert Firebase object into an array (now includes imageUrl)
         return Object.keys(data).map(key => ({
             id: key,
             name: data[key].name,
@@ -41,7 +41,7 @@ async function startBot() {
         auth: state,
         printQRInTerminal: false,
         logger: pino({ level: 'silent' }),
-        browser:["S", "K", "1"] // Ultra-compact QR code
+        browser:["S", "K", "1"] 
     });
 
     sock.ev.on('connection.update', (update) => {
@@ -76,16 +76,16 @@ async function startBot() {
 
         // --- 🛒 STEP 2: FINISH ORDER & SEND TO ADMIN PANEL ---
         if (orderStates[sender]?.step === 'WAITING_FOR_ADDRESS') {
-            const customerAddress = text;
+            const customerDetails = text; // This now contains Name, Phone, and Address
             const item = orderStates[sender].item;
-            const customerPhone = sender.split('@')[0];
+            const customerWaNumber = sender.split('@')[0];
 
             // Match the exact format of your JavaGoat Admin Panel
             const javaGoatOrder = {
-                userId: "whatsapp_" + customerPhone,
+                userId: "whatsapp_" + customerWaNumber,
                 userEmail: "whatsapp@javagoat.com",
-                phone: customerPhone,
-                address: customerAddress,
+                phone: customerWaNumber, // Keeps their WA number registered
+                address: customerDetails, // Saves Name, Phone, and Address typed by them
                 location: { lat: 0, lng: 0 },
                 items:[{
                     id: item.id,
@@ -94,7 +94,7 @@ async function startBot() {
                     img: item.imageUrl || "",
                     quantity: 1
                 }],
-                total: (parseFloat(item.price) + 50).toFixed(2), // Price + 50 Delivery Fee (Matching your app)
+                total: (parseFloat(item.price) + 50).toFixed(2), // Price + 50 Delivery Fee
                 status: "Placed",
                 method: "Cash on Delivery (WhatsApp)",
                 timestamp: new Date().toISOString()
@@ -116,7 +116,7 @@ async function startBot() {
             return;
         }
 
-        // --- 🌟 STEP 1: START ORDER FLOW ---
+        // --- 🌟 STEP 1: START ORDER FLOW (WITH IMAGE & PHONE REQUEST) ---
         if (text.startsWith("order ")) {
             const productRequested = text.replace("order ", "").trim().toLowerCase();
             const currentMenu = await getMenuFromApp();
@@ -130,7 +130,20 @@ async function startBot() {
             }
 
             orderStates[sender] = { step: 'WAITING_FOR_ADDRESS', item: matchedItem };
-            await sock.sendMessage(sender, { text: `🛒 *Order Started!* \n\nYou selected: *${matchedItem.name}* (₹${matchedItem.price})\n\nPlease reply with your *Full Name* and *Delivery Address*.` });
+            
+            // 🌟 NEW: SEND PRODUCT IMAGE + ASK FOR PHONE NUMBER 🌟
+            const captionText = `🛒 *Order Started!* \n\nYou selected: *${matchedItem.name}* (₹${matchedItem.price})\n\nPlease reply with your *Full Name, Phone Number, and Delivery Address*.`;
+            
+            // If the product has an image URL in Firebase, send it as a WhatsApp Photo
+            if (matchedItem.imageUrl) {
+                await sock.sendMessage(sender, { 
+                    image: { url: matchedItem.imageUrl }, 
+                    caption: captionText 
+                });
+            } else {
+                // Fallback if no image is found
+                await sock.sendMessage(sender, { text: captionText });
+            }
         }
         else if (text === "order") { 
             await sock.sendMessage(sender, { text: "🛒 *How to order:* \nPlease type 'order' followed by the dish name. \nExample: *order pizza*" });
